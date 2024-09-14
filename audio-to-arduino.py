@@ -1,23 +1,34 @@
 from pydub import AudioSegment
 import librosa
 import numpy as np
+import os
+import sys
+import tempfile
 
 def convert_mp3_to_wav(mp3_file, wav_file):
-    audio = AudioSegment.from_file(mp3_file, format='mp3')
-    audio.export(wav_file, format='wav')
+    try:
+        audio = AudioSegment.from_file(mp3_file, format='mp3')
+        audio.export(wav_file, format='wav')
+    except Exception as e:
+        print(f"Error converting MP3 to WAV: {e}")
+        sys.exit(1)
 
 def extract_pitches(wav_file):
     # Load the audio as a waveform `y`
     # Store the sampling rate as `sr`
-    y, sr = librosa.load(wav_file)
-    f0, voiced_flag, voiced_probs = librosa.pyin(
-        y,
-        fmin=librosa.note_to_hz('C2'),
-        fmax=librosa.note_to_hz('C7'),
-        sr=sr,
-        frame_length=2048,
-        hop_length=256
-    )
+    y, sr = librosa.load(wav_file, sr=None) # Preserve original sampling rate
+    try:
+        f0, voiced_flag, voiced_probs = librosa.pyin(
+            y,
+            fmin=librosa.note_to_hz('C2'),
+            fmax=librosa.note_to_hz('C7'),
+            sr=sr,
+            frame_length=2048,
+            hop_length=256
+        )
+    except Exception as e:
+        print(f"Error extracting pitches: {e}")
+        sys.exit(1)
     times = librosa.times_like(f0, sr=sr, hop_length=256)
     # Filter out unvoiced frames
     pitches = f0[~np.isnan(f0)]
@@ -35,7 +46,12 @@ def midi_note_to_arduino_constant(midi_note):
     return f'NOTE_{note_name}{octave}'
 
 def calculate_durations(times):
-    return np.diff(times, prepend=times[0])
+    if len(times) > 1:
+        last_duration = times[-1] - times[-2]
+    else:
+        last_duration = times[0]
+    durations = np.append(np.diff(times), last_duration)
+    return durations
 
 def quantize_durations(durations, tempo):
     beat_duration = 60 / tempo  # Duration of a beat in seconds
@@ -68,18 +84,78 @@ def generate_arduino_arrays(melody, durations):
     print(f'  {durations_array}')
     print('};')
 
-def main():
-    mp3_file = 'input.mp3'
-    wav_file = 'output.wav'
-    convert_mp3_to_wav(mp3_file, wav_file)
+def group_notes(midi_notes, durations):
+    grouped_melody = []
+    grouped_durations = []
+    current_note = midi_notes[0]
+    current_duration = durations[0]
+
+    for note, duration in zip(midi_notes[1:], durations[1:]):
+        if note == current_note:
+            current_duration += duration
+        else:
+            grouped_melody.append(current_note)
+            grouped_durations.append(current_duration)
+            current_note = note
+            current_duration = duration
+
+    # Append the last note
+    grouped_melody.append(current_note)
+    grouped_durations.append(current_duration)
+
+    return grouped_melody, grouped_durations
+
+def cleanup(temp_file):
+    if os.path.exists(temp_file):
+        try:
+            os.remove(temp_file)
+        except Exception as e:
+            print(f"Error deleting temporary file: {e}")
+
+def process_mp3_file(file_path, tempo):
+    with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as temp_wav_file:
+        wav_file = temp_wav_file.name
+    convert_mp3_to_wav(file_path, wav_file)
     pitches, times = extract_pitches(wav_file)
+    cleanup(wav_file)
+
+    if len(pitches) == 0:
+        print("No pitches detected!")
+        return
 
     midi_notes = [frequency_to_midi_note(freq) for freq in pitches]
     durations = calculate_durations(times)
-    quantized_durations = quantize_durations(durations, 120)
+    grouped_melody, grouped_durations = group_notes(midi_notes, durations)
+    quantized_durations = quantize_durations(grouped_durations, tempo)
 
-    generate_arduino_arrays(midi_notes, quantized_durations)
+    generate_arduino_arrays(grouped_melody, quantized_durations)
 
+def get_file_extension(file_path):
+    return os.path.splitext(file_path)[1].lower()
+
+def main():
+    if len(sys.argv) < 2:
+        print("Usage: python audio_to_arduino.py <input_file> [options]")
+        print("Options:")
+        print("  --tempo <tempo>    Set the tempo (default: 120 BPM)")
+        return
+
+    input_file = sys.argv[1]
+    tempo = 120 # Default tempo
+
+    args = sys.argv[2:]
+    i = 0
+    while i < len(args):
+        if args[i] == '--tempo':
+            i += 1
+            tempo = float(args[i])
+        i += 1
+
+    file_extension = get_file_extension(input_file)
+    if file_extension == '.mp3':
+        process_mp3_file(input_file, tempo)
+    else:
+        print("Unsupported file type. Please provide an MP3 file!")
 
 if __name__ == '__main__':
     main()
