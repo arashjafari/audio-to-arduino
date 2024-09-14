@@ -34,6 +34,9 @@ def midi_note_to_arduino_constant(midi_note):
     note_name = note_names[note_index]
     return f'NOTE_{note_name}{octave}'
 
+def calculate_durations(times):
+    return np.diff(times, prepend=times[0])
+
 def main():
     mp3_file = 'input.mp3'
     wav_file = 'output.wav'
@@ -41,8 +44,9 @@ def main():
     pitches, times = extract_pitches(wav_file)
     # print(pitches)
     # print(times)
-    for freq in pitches:
-        print(midi_note_to_arduino_constant(frequency_to_midi_note(freq)))
+    # for freq in pitches:
+    #     print(midi_note_to_arduino_constant(frequency_to_midi_note(freq)))
+    print(calculate_durations(times))
 
 if __name__ == '__main__':
     main()
