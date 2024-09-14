@@ -55,16 +55,31 @@ def quantize_durations(durations, tempo):
         quantized_durations.append(quantized_duration)
     return quantized_durations
 
+def generate_arduino_arrays(melody, durations):
+    melody_constants = [midi_note_to_arduino_constant(note) for note in melody]
+    melody_array = ', '.join(melody_constants)
+    durations_array = ', '.join(str(int(d)) for d in durations)
+
+    print('int melody[] = {')
+    print(f'  {melody_array}')
+    print('};\n')
+
+    print('int durations[] = {')
+    print(f'  {durations_array}')
+    print('};')
+
 def main():
     mp3_file = 'input.mp3'
     wav_file = 'output.wav'
     convert_mp3_to_wav(mp3_file, wav_file)
     pitches, times = extract_pitches(wav_file)
-    # print(pitches)
-    # print(times)
-    # for freq in pitches:
-    #     print(midi_note_to_arduino_constant(frequency_to_midi_note(freq)))
-    print(quantize_durations(calculate_durations(times), 120))
+
+    midi_notes = [frequency_to_midi_note(freq) for freq in pitches]
+    durations = calculate_durations(times)
+    quantized_durations = quantize_durations(durations, 120)
+
+    generate_arduino_arrays(midi_notes, quantized_durations)
+
 
 if __name__ == '__main__':
     main()
