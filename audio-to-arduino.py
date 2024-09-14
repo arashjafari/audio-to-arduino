@@ -37,6 +37,24 @@ def midi_note_to_arduino_constant(midi_note):
 def calculate_durations(times):
     return np.diff(times, prepend=times[0])
 
+def quantize_durations(durations, tempo):
+    beat_duration = 60 / tempo  # Duration of a beat in seconds
+    quantized_durations = []
+    for duration in durations:
+        beats = duration / beat_duration
+        if beats >= 1.5:
+            quantized_duration = 1  # Whole note
+        elif beats >= 1.0:
+            quantized_duration = 2  # Half note
+        elif beats >= 0.5:
+            quantized_duration = 4  # Quarter note
+        elif beats >= 0.25:
+            quantized_duration = 8  # Eighth note
+        else:
+            quantized_duration = 16  # Sixteenth note
+        quantized_durations.append(quantized_duration)
+    return quantized_durations
+
 def main():
     mp3_file = 'input.mp3'
     wav_file = 'output.wav'
@@ -46,7 +64,7 @@ def main():
     # print(times)
     # for freq in pitches:
     #     print(midi_note_to_arduino_constant(frequency_to_midi_note(freq)))
-    print(calculate_durations(times))
+    print(quantize_durations(calculate_durations(times), 120))
 
 if __name__ == '__main__':
     main()
