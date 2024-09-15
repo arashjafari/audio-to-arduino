@@ -17,6 +17,8 @@ This project converts an MP3 audio file into a melody that can be played by an A
   - [Sample Arduino Sketch](#sample-arduino-sketch)
   - [How It Works](#how-it-works)
   - [Limitations](#limitations)
+  - [**Memory Management**](#memory-management)
+  - [**Troubleshooting**](#troubleshooting)
   - [License](#license)
 
 ## Features
@@ -84,6 +86,8 @@ python audio_to_arduino.py <input_file.mp3> [options]
 **Options:**
 
 - `--tempo <tempo>`: Set the tempo in beats per minute (BPM). Default is `120`.
+- `--max-size <max_size>`: Maximum number of notes in the output arrays.
+- `--method <truncate|downsample>`: Method to limit array size (default: truncate).
 
 **Example:**
 
@@ -210,6 +214,39 @@ void PlayMusic(int melody[], int durations[], int size) {
 - **Monophonic Audio Only:** The script is designed for monophonic melodies (one note at a time). Polyphonic audio (chords, multiple instruments) will not produce accurate results.
 - **Audio Quality:** The accuracy of pitch detection depends on the quality of the input audio. Noisy recordings may lead to incorrect pitches.
 - **Unsupported Formats:** Currently, only MP3 files are supported. You can modify the script to handle other formats if needed.
+
+
+## **Memory Management**
+
+- **Estimating Memory Usage**
+
+  - Each `int` uses 2 bytes.
+  - Since the number of elements in notes and duration are always the same, we can simplify the calculation:
+
+    ```plaintext
+    Total Memory (bytes) = Number of notes * 4
+    ```
+
+- **Limiting Array Size**
+
+  - Use the `--max-size` option to limit the number of notes.
+  - Choose between `truncate` and `downsample` methods to fit your needs.
+
+
+## **Troubleshooting**
+
+- **No Pitches Detected**
+
+  - Ensure your audio file contains clear, monophonic melodies.
+  - Try using a different audio file or adjusting the tempo.
+
+- **Compilation Errors on Arduino**
+
+  - If you encounter memory-related errors, reduce the `max_size` or optimize your code using `PROGMEM`.
+
+- **Unsupported File Type**
+
+  - The script supports `.mp3` file. Ensure your input file has a supported extension.
 
 ## License
 
