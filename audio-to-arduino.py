@@ -112,7 +112,27 @@ def cleanup(temp_file):
         except Exception as e:
             print(f"Error deleting temporary file: {e}")
 
-def process_mp3_file(file_path, tempo):
+def limit_array_size(melody, durations, max_size, method='truncate'):
+    if max_size == None:
+        return melody, durations
+
+    if len(melody) <= max_size:
+        return melody, durations
+
+    if method == 'truncate':
+        # Truncate the arrays to the maximum size
+        return melody[:max_size], durations[:max_size]
+    elif method == 'downsample':
+        # Downsample the arrays to fit within the maximum size
+        factor = len(melody) / max_size
+        indices = [int(i * factor) for i in range(max_size)]
+        limited_melody = [melody[int(i)] for i in indices]
+        limited_durations = [durations[int(i)] for i in indices]
+        return limited_melody, limited_durations
+    else:
+        raise ValueError("Invalid method for limiting array size.")
+
+def process_mp3_file(file_path, tempo, max_size, method):
     with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as temp_wav_file:
         wav_file = temp_wav_file.name
     convert_mp3_to_wav(file_path, wav_file)
@@ -128,7 +148,11 @@ def process_mp3_file(file_path, tempo):
     grouped_melody, grouped_durations = group_notes(midi_notes, durations)
     quantized_durations = quantize_durations(grouped_durations, tempo)
 
-    generate_arduino_arrays(grouped_melody, quantized_durations)
+    limited_melody, limited_durations = limit_array_size(
+        grouped_melody, quantized_durations, max_size, method
+    )
+
+    generate_arduino_arrays(limited_melody, limited_durations)
 
 def get_file_extension(file_path):
     return os.path.splitext(file_path)[1].lower()
@@ -137,23 +161,33 @@ def main():
     if len(sys.argv) < 2:
         print("Usage: python audio_to_arduino.py <input_file> [options]")
         print("Options:")
-        print("  --tempo <tempo>    Set the tempo (default: 120 BPM)")
+        print("  --tempo <tempo>                 Set the tempo (default: 120 BPM)")
+        print("  --max-size <max_size>           Maximum number of notes in the output")
+        print("  --method <truncate|downsample>  Method to limit array size (default: truncate)")
         return
 
     input_file = sys.argv[1]
     tempo = 120 # Default tempo
-
+    max_size = None  # No limit by default
+    method = 'truncate'  # Default method
+    
     args = sys.argv[2:]
     i = 0
     while i < len(args):
         if args[i] == '--tempo':
             i += 1
             tempo = float(args[i])
+        elif args[i] == '--max-size':
+            i += 1
+            max_size = int(args[i])
+        elif args[i] == '--method':
+            i += 1
+            method = args[i]
         i += 1
 
     file_extension = get_file_extension(input_file)
     if file_extension == '.mp3':
-        process_mp3_file(input_file, tempo)
+        process_mp3_file(input_file, tempo, max_size, method)
     else:
         print("Unsupported file type. Please provide an MP3 file!")
 
