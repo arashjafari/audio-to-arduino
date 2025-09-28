@@ -80,7 +80,7 @@ This project converts an MP3 audio file into a melody that can be played by an A
 ## Usage
 
 ```bash
-python audio_to_arduino.py <input_file.mp3> [options]
+python audio-to-arduino.py <input_file.mp3> [options]
 ```
 
 **Options:**
@@ -92,7 +92,7 @@ python audio_to_arduino.py <input_file.mp3> [options]
 **Example:**
 
 ```bash
-python audio_to_arduino.py melody.mp3 --tempo 100
+python audio-to-arduino.py melody.mp3 --tempo 100
 ```
 
 After running the script, you will see output similar to:
